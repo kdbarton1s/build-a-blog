@@ -15,10 +15,43 @@
 # limitations under the License.
 #
 import webapp2
+import jinja2
+import os
+
+from google.appengine.ext import db
+
+template_dir = os.path.join(os.path.dirname(__file__), "templates")
+jinja_env = jinja2.Environment(loader = jinja2.FileSystemLoader(template_dir),
+                                                        autoescape = True)
+
+class Blog(db.Model):
+    title = db.StringProperty(required = True)
+    blog = db.TextProperty(required = True)
+    created = db.DateTimeProperty(auto_now_add = True)
 
 class MainHandler(webapp2.RequestHandler):
     def get(self):
-        self.response.write('Hello world!')
+        blogs = db.GqlQuery("SELECT * FROM Blog ORDER BY created DESC")
+        t = jinja_env.get_template("mainblog.html")
+        content = t.render(blogs=blogs)
+        self.response.write(content)
+
+    def post(self):
+        title = self.request.get("title")
+        blog = self.request.get("blog")
+
+        if title and blog:
+            b = Blog(title = title, blog = blog)
+            b.put()
+
+            self.redirect("/")
+
+        else:
+            error = "You must have both a title and content in the blog."
+            t = jinja_env.get_template("mainblog.html")
+            content = t.render(title=title, blog=blog, error=error)
+            self.response.write(content)
+
 
 app = webapp2.WSGIApplication([
     ('/', MainHandler)
