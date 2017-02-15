@@ -29,11 +29,29 @@ class Blog(db.Model):
     blog = db.TextProperty(required = True)
     created = db.DateTimeProperty(auto_now_add = True)
 
+
 class MainHandler(webapp2.RequestHandler):
     def get(self):
-        blogs = db.GqlQuery("SELECT * FROM Blog ORDER BY created DESC")
+        blogs = db.GqlQuery("SELECT * FROM Blog ORDER BY created DESC LIMIT 5")
         t = jinja_env.get_template("mainblog.html")
         content = t.render(blogs=blogs)
+        self.response.write(content)
+
+
+class BlogPage(webapp2.RequestHandler):
+    def get(self):
+        blogs = db.GqlQuery("SELECT * FROM Blog ORDER BY created DESC LIMIT 5")
+        t = jinja_env.get_template("mainblog.html")
+        content = t.render(blogs=blogs)
+        self.response.write(content)
+
+
+
+class NewBlogPost(webapp2.RequestHandler):
+
+    def get(self):
+        t=jinja_env.get_template("newpost.html")
+        content = t.render()
         self.response.write(content)
 
     def post(self):
@@ -44,15 +62,32 @@ class MainHandler(webapp2.RequestHandler):
             b = Blog(title = title, blog = blog)
             b.put()
 
-            self.redirect("/")
+            self.redirect("/blog/" + str(b.key().id()))
 
         else:
             error = "You must have both a title and content in the blog."
-            t = jinja_env.get_template("mainblog.html")
+            t = jinja_env.get_template("newpost.html")
             content = t.render(title=title, blog=blog, error=error)
             self.response.write(content)
 
+class ViewPostHandler(webapp2.RequestHandler):
+    def get(self, id):
+        blog_id = Blog.get_by_id(int(id))
+        if blog_id == None:
+            error = "We couldn't find that post. Please try again."
+            self.response.write(error)
+        else:
+            title = blog_id.title
+            blog = blog_id.blog
+            t = jinja_env.get_template("blogpost.html")
+            content = t.render(title=title, blog=blog)
+            self.response.write(content)
+
+
 
 app = webapp2.WSGIApplication([
-    ('/', MainHandler)
+    ('/', MainHandler),
+    ('/blog', BlogPage),
+    ('/newpost', NewBlogPost),
+    webapp2.Route('/blog/<id:\d+>', ViewPostHandler)
 ], debug=True)
